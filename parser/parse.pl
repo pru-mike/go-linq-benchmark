@@ -6,16 +6,15 @@ use autodie;
 use feature qw/say/;
 use HTML::TableExtract;
 use Text::CSV qw/csv/;
+use LWP::Simple qw/get/;
+my $DATA_URL = q[https://en.wikipedia.org/wiki/List_of_largest_Internet_companies];
 
-open my $fh, '<', "company.html";
+my $html_string = get($DATA_URL);
+die "Can't get $DATA_URL" unless $html_string;
 
-my $html_string = do {
-    local $/;
-    <$fh>;
-};
-
-my @headers = (qw(company employees revenue headquarters founded), "market cap");
-my @data = [q/country/, @headers];
+my @headers = (qw(company employees revenue headquarters founded));
+my @data = [q/country/, @headers, q/marketcap/];
+@headers = (@headers, "market cap");
 
 my $te = HTML::TableExtract->new(
     headers => \@headers 
@@ -23,6 +22,7 @@ my $te = HTML::TableExtract->new(
 $te->parse($html_string);
 
 foreach my $row ($te->rows) {
+   no warnings 'uninitialized';
    @$row = map {s/^\s*//; s/\s*$//; $_} @$row;
    $row->[1] =~ s/,//;
    $row->[2] =~ s/[^.\d]//g;
@@ -37,7 +37,8 @@ $te = HTML::TableExtract->new(
 $te->parse($html_string);
 
 my $i = 1;
-foreach my $row ($te->rows) {
+my $ts = ($te->tables)[1];
+foreach my $row ($ts->rows) {
     if ($row->[0] =~ m/title="([^"]+)"/){
         unshift @{$data[$i]}, $1;
     }
